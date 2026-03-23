@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔒 Secure PDF Combiner</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            padding-left: 380px; /* Space for fixed left panel */
+        }
+        
+        @media (max-width: 1100px) {
+            body {
+                padding-left: 20px;
+                padding-top: 400px;
+            }
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 { color: #667eea; text-align: center; margin-bottom: 10px; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+        
+        /* Wake Up Overlay */
+        #wakeUpOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px; height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* FIXED LEFT SIDE - Guide (Blue/Purple) - Always in corner */
+        .guide-section {
+            position: fixed;
+            left: 20px;
+            top: 20px;
+            width: 340px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            border-radius: 15px;
+            color: white;
+            height: calc(100vh - 40px);
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+        
+        @media (max-width: 1100px) {
+            .guide-section {
+                position: relative;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: auto;
+                margin-bottom: 20px;
+            }
+            body {
+                padding-left: 20px;
+                padding-top: 20px;
+            }
+        }
+        
+        .guide-section h3 { 
+            color: white; 
+            margin-bottom: 20px; 
+            font-size: 20px;
+            border-bottom: 2px solid rgba(255,255,255,0.3);
+            padding-bottom: 15px;
+        }
+        .guide-section ol { 
+            margin-left: 25px; 
+            line-height: 2.2; 
+            color: #f0f4ff; 
+            font-size: 14px; 
+        }
+        .guide-section li { margin-bottom: 10px; }
+        .guide-section strong { color: white; }
+        .warning { 
+            background: rgba(255,255,255,0.25);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        /* RIGHT SIDE - Upload (White) */
+        .upload-section {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .session-info {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #856404;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 50px 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            background: #f8f9ff;
+            transition: all 0.3s;
+        }
+        .upload-area:hover { 
+            background: #e8eaff; 
+            border-color: #764ba2;
+        }
+        .upload-area.dragover {
+            background: #e8eaff;
+            border-color: #764ba2;
+        }
+        .icon { font-size: 60px; margin-bottom: 15px; }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; border: none;
+            padding: 15px 40px; font-size: 18px;
+            border-radius: 10px; cursor: pointer;
+            width: 100%;
+            margin-top: 15px;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .btn-delete {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .btn-delete:hover { background: #dc2626; }
+        
+        .file-list {
+            margin: 20px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            background: #fafafa;
+        }
+        .file-item {
+            background: white;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid #667eea;
+        }
+        .file-number {
+            background: #667eea;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .file-info {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+        .file-name {
+            font-weight: 500;
+            word-break: break-all;
+        }
+        .file-size {
+            color: #999;
+            margin-left: 10px;
+            font-size: 13px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+            background: #f0f4ff;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .security-box {
+            background: #ecfdf5;
+            border: 1px solid #10b981;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #065f46;
+        }
+        .security-box strong {
+            display: block;
+            margin-bottom: 8px;
+            color: #047857;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="wakeUpOverlay">
+        <div class="spinner"></div>
+        <h2>🔒 Initializing...</h2>
+        <p>Please wait up to 60s</p>
+    </div>
+
+    <!-- FIXED LEFT PANEL - Always visible in corner -->
+    <div class="guide-section">
+        <h3>📋 How to Upload Files</h3>
+        <ol>
+            <li><strong>Select Files:</strong> Click the upload box and select all files.</li>
+            <li><strong>Serial Order:</strong> Files are processed in selection order.</li>
+            <li><strong>One Batch Only:</strong> Upload <span class="warning">only once at a time</span>.</li>
+            <li><strong>Supports up to 80 MB of files for combining</strong>            
+            <li><strong>Small Quantities:</strong> Max 50MB to avoid crashes.</li>
+            <li><strong>Combine or Reset:</strong> Delete files to create new order.</li>
+            <li><strong>Manual Delete:</strong> Delete files after downloading.</li>
+        </ol>
+    </div>
+
+    <div class="container">
+        <h1>🔒 Boon Secure PDF Combiner</h1>
+        <p class="subtitle">Format Preserved • Auto-Delete • Encrypted</p>
+        
+        <div class="upload-section">
+            <div class="session-info">
+                <span>📁 <strong>Files:</strong> <span id="fileCount">0</span></span>
+                <button class="btn-delete" id="deleteAllBtn" style="display:none;">🗑️ Delete All</button>
+            </div>
+            
+            <div class="upload-area" id="dropZone">
+    <div class="icon">📁</div>
+    <p style="font-size:18px;margin-bottom:10px;"><strong>Drag & Drop Files Here</strong></p>
+    <p style="color:#666;margin-bottom:15px;">or click to browse</p>
+    
+    <!-- 🔽 YE HAI NAYA CODE 🔽 -->
+    <p style="color:#999;font-size:13px;">
+        PDF, TXT, JPG, PNG<br>
+        <em style="color:#667eea; font-size:12px;">
+            💡 Tip: Convert Word files to PDF before uploading for best results
+        </em>
+    </p>
+                <input type="file" id="fileInput" multiple accept=".pdf,.txt,.rtf,.jpg,.jpeg,.png,.gif,.bmp" style="display:none;">
+            </div>
+            
+            <div class="file-list" id="fileList">
+                <p style="text-align:center;color:#999;padding:30px;">No files uploaded yet</p>
+            </div>
+            
+            <button class="btn" id="submitBtn" disabled>🚀 Combine & Download PDF</button>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top:15px;">Processing files...</p>
+            </div>
+        </div>
+
+        <div class="security-box">
+            <strong>🛡️ Privacy Policy:</strong>
+            • Auto-delete after 60 minutes<br>
+            • Manual delete available<br>
+            • Files encrypted (unreadable to us)<br>
+            • 100% private & secure
+            • ✨ "Powered by Qwen" 
+        </div>
+    </div>
+
+    <script>
+        // Hide wake overlay
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('wakeUpOverlay').style.display = 'none';
+            }, 1500);
+        });
+
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const submitBtn = document.getElementById('submitBtn');
+        const deleteAllBtn = document.getElementById('deleteAllBtn');
+        const loading = document.getElementById('loading');
+        const fileCount = document.getElementById('fileCount');
+
+        let uploadedFiles = [];
+
+        // Click to upload
+        dropZone.addEventListener('click', () => {
+            fileInput.value = ''; // Reset input to allow same file selection
+            fileInput.click();
+        });
+
+        // Drag and drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            handleFiles(files);
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            handleFiles(files);
+        });
+
+        function handleFiles(files) {
+    if (files.length === 0) return;
+    
+    let filesToAdd = [];
+    let duplicates = [];
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Check if file with same name already exists
+        const isDuplicate = uploadedFiles.some(f => f.name === file.name);
+        
+        if (isDuplicate) {
+            duplicates.push(file.name);
+        } else {
+            filesToAdd.push(file);
+        }
+    }
+    
+    // If duplicates found, ask user
+    if (duplicates.length > 0) {
+        const duplicateList = duplicates.join(', ');
+        const message = `These files are already in the list:\n${duplicateList}\n\nAdd them again?`;
+        
+        if (confirm(message)) {
+            // User wants to add duplicates
+            filesToAdd = [...filesToAdd, ...files.filter(f => duplicates.includes(f.name))];
+        }
+    }
+    
+    // Add files
+    if (filesToAdd.length > 0) {
+        for (let i = 0; i < filesToAdd.length; i++) {
+            uploadedFiles.push(filesToAdd[i]);
+        }
+        updateFileList();
+    }
+}
+
+        function updateFileList() {
+            if (uploadedFiles.length === 0) {
+                fileList.innerHTML = '<p style="text-align:center;color:#999;padding:30px;">No files uploaded yet</p>';
+                fileCount.textContent = '0';
+                submitBtn.disabled = true;
+                deleteAllBtn.style.display = 'none';
+                return;
+            }
+            
+            fileList.innerHTML = '';
+            uploadedFiles.forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'file-item';
+                item.innerHTML = `
+                    <div class="file-info">
+                        <div class="file-number">${index + 1}</div>
+                        <div>
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-size">${(file.size / 1024).toFixed(1)} KB</div>
+                        </div>
+                    </div>
+                    <button class="btn-delete" onclick="deleteFile(${index})">✕</button>
+                `;
+                fileList.appendChild(item);
+            });
+            
+            fileCount.textContent = uploadedFiles.length;
+            submitBtn.disabled = false;
+            deleteAllBtn.style.display = 'inline-block';
+        }
+
+        function deleteFile(index) {
+            if (!confirm('Delete this file?')) return;
+            uploadedFiles.splice(index, 1);
+            updateFileList();
+        }
+
+        deleteAllBtn.addEventListener('click', () => {
+            if (!confirm('Delete all files?')) return;
+            uploadedFiles = [];
+            updateFileList();
+        });
+
+        // Form submission
+        submitBtn.addEventListener('click', () => {
+            if (uploadedFiles.length === 0) {
+                alert('Please select files first');
+                return;
+            }
+            
+            const formData = new FormData();
+            uploadedFiles.forEach((file, index) => {
+                formData.append('files', file);
+            });
+            
+            loading.style.display = 'block';
+            submitBtn.disabled = true;
+            
+            fetch('/combine', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.blob();
+                }
+                throw new Error('Failed to process files');
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'combined.pdf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                alert('✅ Download complete! Files will auto-delete in 60 minutes.');
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+            })
+            .finally(() => {
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+            });
+        });
+    </script>
+</body>
+</html>
